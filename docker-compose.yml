@@ -1,0 +1,70 @@
+version: "3.9"
+
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB:       fo_monitor
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: yourpassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # ── Redis ────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # ── Django (HTTP + WebSocket via Daphne) ─────────────────────
+  web:
+    build: ./backend
+    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    env_file: ./backend/.env
+    depends_on:
+      - db
+      - redis
+
+  # ── Celery Worker ─────────────────────────────────────────────
+  celery_worker:
+    build: ./backend
+    command: celery -A config.celery worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    env_file: ./backend/.env
+    depends_on:
+      - db
+      - redis
+
+  # ── Celery Beat (Scheduler) ───────────────────────────────────
+  celery_beat:
+    build: ./backend
+    command: celery -A config.celery beat --loglevel=info
+    volumes:
+      - ./backend:/app
+    env_file: ./backend/.env
+    depends_on:
+      - db
+      - redis
+
+  # ── React Frontend ────────────────────────────────────────────
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
+  redis_data:
