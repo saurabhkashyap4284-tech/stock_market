@@ -33,8 +33,7 @@ services:
   - type: web
     name: fo-monitor-ui
     runtime: static
-    # region: singapore # Removed: Static sites cannot have a region
-    plan: free
+    # plan: free # Static sites on Render are free by default and don't need this field
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
     routes:
