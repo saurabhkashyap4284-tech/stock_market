@@ -6,7 +6,6 @@ services:
     region: singapore
     plan: free
     buildCommand: cd backend && pip install -r requirements.txt && python manage.py collectstatic --no-input
-    # Move migrations to startCommand because preDeployCommand is not free
     startCommand: |
       cd backend
       python manage.py migrate --no-input
@@ -33,7 +32,7 @@ services:
   - type: web
     name: fo-monitor-ui
     runtime: static
-    # plan: free # Static sites on Render are free by default and don't need this field
+    # No plan field here — static sites are free by default
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
     routes:
@@ -45,15 +44,13 @@ services:
         fromService:
           type: web
           name: fo-monitor-api
-          property: host # Changed from url to host
-          # Note: We'll handle the https:// prefix in the code or use a clever envVar trick
+          property: host
 
   # ── Render Key Value (Redis) ──────────────────────────────────
   - type: keyvalue
     name: fo-redis
     region: singapore
-    plan: free
-    ipAllowList: [] # Mandatory field
+    ipAllowList: []
 
 databases:
   # ── Render Postgres ──────────────────────────────────────────
