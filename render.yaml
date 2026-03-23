@@ -70,7 +70,7 @@ services:
         value: 3.11.5
 
   # ── React Frontend (Static Site) ──────────────────────────────
-  - type: static
+  - type: static_site
     name: fo-monitor-ui
     region: singapore
     plan: free
