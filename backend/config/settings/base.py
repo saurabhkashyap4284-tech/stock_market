@@ -114,8 +114,12 @@ SIMPLE_JWT = {
 
 # ── CORS ──────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",   # Vite dev server
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
 ]
 
 # ── Auth ──────────────────────────────────────────────────────────
@@ -142,5 +146,17 @@ USE_TZ        = True
 # ── Market Config ─────────────────────────────────────────────────
 MARKET_API_URL   = os.getenv("MARKET_API_URL", "")
 MARKET_API_KEY   = os.getenv("MARKET_API_KEY", "")
-USE_MOCK_DATA    = os.getenv("USE_MOCK_DATA", "True") == "True"
+USE_MOCK_DATA    = os.getenv("USE_MOCK_DATA", "False") == "True"
 FETCH_INTERVAL   = 30   # seconds
+
+# ── NSE API Config ────────────────────────────────────────────────
+NSE_SESSION_URL = "https://www.nseindia.com"
+NSE_DATA_URL = "https://www.nseindia.com/api/live-analysis-oi-spurts-underlyings"
+NSE_HEADERS = {
+    "accept": "*/*",
+    "accept-language": "en-IN,en-GB;q=0.9,en-US;q=0.8,en;q=0.7",
+    "referer": "https://www.nseindia.com/market-data/oi-spurts",
+    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+    "dnt": "1",
+    "priority": "u=1, i",
+}

@@ -1,155 +1,117 @@
-"""
-Signal Engine — Core Logic
-==========================
+import logging
 
-BEARISH setup:
-  - 5-min candle ke saare 4 points (O, H, L, C) prev_close se NICHE
-  - OI badha = fresh shorts aa rahe hain
-  - 9:20-9:30 mein price Open→High ke beech = dead-cat bounce (short karo)
-
-BULLISH setup (exact mirror):
-  - 5-min candle ke saare 4 points (O, H, L, C) prev_close se UPAR
-  - OI badha = fresh longs aa rahe hain
-  - 9:20-9:30 mein price Low→Open ke beech = healthy pullback (long karo)
-"""
+logger = logging.getLogger(__name__)
 
 
-def classify_signal(stock: dict, candle5: dict, phase: str) -> dict:
+def classify_signal(
+    stock: dict,
+    candle5: dict,
+    phase: str,
+    baseline_ltp: float = None,
+    baseline_oi: int = None,
+    current_signal: dict = None,
+) -> dict:
     """
-    Main signal classification function.
+    Signal classification based on user requirements:
 
-    Args:
-        stock:   { prev_close, ltp, oi, oi_prev, ... }
-        candle5: { open, high, low, close }
-        phase:   PRE | CANDLE | WATCH | OPEN
+    BEARISH:
+        - LTP < baseline_ltp (9 AM / prev_close)
+        - LTP < 5-min candle high
+        - OI increased vs baseline_oi
 
-    Returns:
-        { signal, strength, reason }
+    BULLISH:
+        - LTP > baseline_ltp (9 AM / prev_close)
+        - LTP within 5-min candle range (between low and high)
+
+    FALSE_ALERT_BULL:
+        - Was previously BULLISH but LTP dropped below baseline_ltp
+
+    FALSE_ALERT_BEAR:
+        - Was previously BEARISH but LTP rose above baseline_ltp
     """
-    # Sirf WATCH aur OPEN phase mein signals
+    # Carry forward previous state
+    prev_signal_type = current_signal.get("signal", "NEUTRAL") if current_signal else "NEUTRAL"
+    signal_ts        = current_signal.get("signal_ts") if current_signal else None
+
+    # Not ready yet — no candle or not in active phase
     if not candle5 or phase in ("PRE", "CANDLE", "CLOSED"):
-        return {"signal": "NEUTRAL", "strength": "-", "reason": "Market phase active nahi hai"}
+        return {
+            "signal":     "NEUTRAL",
+            "reason":     "Market not in active phase or candle missing",
+            "signal_ts":  signal_ts,
+        }
 
-    prev_close = stock["prev_close"]
+    # No baseline available — can't classify
+    if baseline_ltp is None:
+        return {
+            "signal":     "NEUTRAL",
+            "reason":     "Baseline LTP not available yet",
+            "signal_ts":  signal_ts,
+        }
+
     ltp        = stock["ltp"]
-    oi         = stock.get("oi", 0)
-    oi_prev    = stock.get("oi_prev", 0)
-    oi_up      = oi > oi_prev
+    oi_current = stock.get("oi", 0)
+    c_high     = candle5["high"]
+    c_low      = candle5["low"]
 
-    c_open  = candle5["open"]
-    c_high  = candle5["high"]
-    c_low   = candle5["low"]
-    c_close = candle5["close"]
+    # OI comparison
+    oi_increased = False
+    if baseline_oi and baseline_oi > 0:
+        oi_increased = oi_current > baseline_oi
 
     # ════════════════════════════════════════════════════════
-    #  BEARISH — saare 4 points prev_close se NICHE
+    #  FALSE ALERT Detection (reversal from previous signal)
     # ════════════════════════════════════════════════════════
-    full_bearish = (
-        c_open  < prev_close and
-        c_high  < prev_close and
-        c_low   < prev_close and
-        c_close < prev_close
-    )
 
-    if full_bearish and oi_up:
-        # Price dead-cat bounce kar raha hai Open→High ke beech
-        if c_open < ltp < c_high:
-            return {
-                "signal":   "BEARISH_TRAP",
-                "strength": "STRONG",
-                "reason":   (
-                    f"OHLC sab < PrevClose({prev_close}) | OI↑ | "
-                    f"LTP({ltp}) Open({c_open})→High({c_high}) ke beech = "
-                    f"dead-cat bounce, short opportunity"
-                ),
-            }
+    # Was BULLISH, now LTP fell below baseline → False Alert
+    if prev_signal_type == "BULLISH" and ltp < baseline_ltp:
         return {
-            "signal":   "BEARISH",
-            "strength": "STRONG",
-            "reason":   f"OHLC sab < PrevClose({prev_close}) | OI↑ = fresh shorts build ho rahe",
+            "signal":     "FALSE_ALERT_BULL",
+            "reason":     f"Was Bullish, reversed below baseline | LTP({ltp}) < Baseline({baseline_ltp})",
+            "signal_ts":  None,  # new timestamp will be set by task
         }
 
-    if full_bearish and not oi_up:
-        if c_open < ltp < c_high:
-            return {
-                "signal":   "BEARISH_TRAP",
-                "strength": "MODERATE",
-                "reason":   f"OHLC sab < PrevClose({prev_close}) | OI confirm nahi | LTP Open→High zone mein",
-            }
+    # Was BEARISH, now LTP rose above baseline → False Alert
+    if prev_signal_type == "BEARISH" and ltp > baseline_ltp:
         return {
-            "signal":   "BEARISH",
-            "strength": "MODERATE",
-            "reason":   f"OHLC sab < PrevClose({prev_close}) | OI abhi confirm nahi kar raha",
+            "signal":     "FALSE_ALERT_BEAR",
+            "reason":     f"Was Bearish, reversed above baseline | LTP({ltp}) > Baseline({baseline_ltp})",
+            "signal_ts":  None,
+        }
+
+    # False alerts are sticky for the day — once false, stays false
+    if prev_signal_type in ("FALSE_ALERT_BULL", "FALSE_ALERT_BEAR"):
+        return {
+            "signal":     prev_signal_type,
+            "reason":     current_signal.get("reason", "Signal invalidated earlier"),
+            "signal_ts":  signal_ts,
         }
 
     # ════════════════════════════════════════════════════════
-    #  BULLISH — saare 4 points prev_close se UPAR (exact mirror)
+    #  BEARISH — LTP < baseline AND LTP < candle high AND OI ↑
     # ════════════════════════════════════════════════════════
-    full_bullish = (
-        c_open  > prev_close and
-        c_high  > prev_close and
-        c_low   > prev_close and
-        c_close > prev_close
-    )
-
-    if full_bullish and oi_up:
-        # Price pullback kar raha hai Low→Open ke beech
-        if c_low < ltp < c_open:
-            return {
-                "signal":   "BULLISH_PULLBACK",
-                "strength": "STRONG",
-                "reason":   (
-                    f"OHLC sab > PrevClose({prev_close}) | OI↑ | "
-                    f"LTP({ltp}) Low({c_low})→Open({c_open}) ke beech = "
-                    f"healthy pullback, long opportunity"
-                ),
-            }
+    if ltp < baseline_ltp and ltp < c_high and oi_increased:
         return {
-            "signal":   "BULLISH",
-            "strength": "STRONG",
-            "reason":   f"OHLC sab > PrevClose({prev_close}) | OI↑ = fresh longs build ho rahe",
-        }
-
-    if full_bullish and not oi_up:
-        if c_low < ltp < c_open:
-            return {
-                "signal":   "BULLISH_PULLBACK",
-                "strength": "MODERATE",
-                "reason":   f"OHLC sab > PrevClose({prev_close}) | OI confirm nahi | LTP Low→Open zone mein",
-            }
-        return {
-            "signal":   "BULLISH",
-            "strength": "MODERATE",
-            "reason":   f"OHLC sab > PrevClose({prev_close}) | OI abhi confirm nahi kar raha",
+            "signal":     "BEARISH",
+            "reason":     f"LTP({ltp}) < Baseline({baseline_ltp}) & < Candle High({c_high}) | OI↑",
+            "signal_ts":  signal_ts if prev_signal_type == "BEARISH" else None,
         }
 
     # ════════════════════════════════════════════════════════
-    #  MIXED CANDLE — watch window mein price action
+    #  BULLISH — LTP > baseline AND LTP in candle range
     # ════════════════════════════════════════════════════════
-    if phase in ("WATCH", "OPEN"):
-        if ltp < c_low:
-            return {
-                "signal":   "BEARISH",
-                "strength": "STRONG" if oi_up else "MODERATE",
-                "reason":   f"LTP({ltp}) 5-min Low({c_low}) se neeche breakdown | {'OI↑' if oi_up else 'OI confirm nahi'}",
-            }
-        if ltp > c_high:
-            return {
-                "signal":   "BULLISH",
-                "strength": "STRONG" if oi_up else "MODERATE",
-                "reason":   f"LTP({ltp}) 5-min High({c_high}) se upar breakout | {'OI↑' if oi_up else 'OI confirm nahi'}",
-            }
-        if c_open < ltp < c_high:
-            return {
-                "signal":   "BEARISH_ZONE",
-                "strength": "WATCH",
-                "reason":   f"LTP({ltp}) Open({c_open})→High({c_high}) ke beech | rejection ka wait karo",
-            }
-        if c_low < ltp < c_open:
-            return {
-                "signal":   "BULLISH_ZONE",
-                "strength": "WATCH",
-                "reason":   f"LTP({ltp}) Low({c_low})→Open({c_open}) ke beech | bounce ka wait karo",
-            }
+    if ltp > baseline_ltp and c_low <= ltp <= c_high:
+        return {
+            "signal":     "BULLISH",
+            "reason":     f"LTP({ltp}) > Baseline({baseline_ltp}) & in range [{c_low}, {c_high}]",
+            "signal_ts":  signal_ts if prev_signal_type == "BULLISH" else None,
+        }
 
-    return {"signal": "NEUTRAL", "strength": "-", "reason": "Abhi koi clear setup nahi"}
+    # ════════════════════════════════════════════════════════
+    #  NEUTRAL — No clear setup
+    # ════════════════════════════════════════════════════════
+    return {
+        "signal":     "NEUTRAL",
+        "reason":     f"No clear signal | LTP={ltp}, Baseline={baseline_ltp}, Candle=[{c_low}-{c_high}]",
+        "signal_ts":  signal_ts,
+    }

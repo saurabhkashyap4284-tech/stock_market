@@ -1,7 +1,15 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useMarketStore, useAlertsStore } from "../store";
+// ── Dynamic WS URL Logic ──────────────────────────────────────
+const getWsUrl = () => {
+  if (import.meta.env.VITE_WS_URL) return import.meta.env.VITE_WS_URL;
+  const { protocol, host } = window.location;
+  const wsProto = protocol === "https:" ? "wss:" : "ws:";
+  // Default to the same host but with the /ws/market/ path
+  return `${wsProto}//${host}/ws/market/`;
+};
 
-const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws/market/";
+const WS_URL = getWsUrl();
 
 export function useWebSocket() {
   const wsRef       = useRef(null);

@@ -17,33 +17,91 @@ def fetch_market_data() -> list[dict]:
     return _fetch_real_api()
 
 
-# ── Real API (replace when ready) ────────────────────────────────
+from .nse_service import nse_service
+
+from utils.redis_client import get_prev_close
+
+# ── Real API (NSE India) ──────────────────────────────────────────
 def _fetch_real_api() -> list[dict]:
     """
-    Real API se data fetch karo.
-    Expected response shape:
-    {
-      "data": [
-        {
-          "symbol": "RELIANCE",
-          "prev_close": 1407,
-          "ltp": 1395,
-          "open": 1390,
-          "high": 1400,
-          "low": 1382,
-          "oi": 2100000,
-          "oi_prev": 1950000,
-          "oi_change": 7.69,
-          "volume": 520000
-        },
-        ...
-      ]
-    }
+    NSE F&O API se data fetch karo aur map karo.
+    Merge FO Securities (all 200) with OI Spurts (active OI changes).
     """
-    headers = {"Authorization": f"Bearer {settings.MARKET_API_KEY}"}
-    resp    = requests.get(settings.MARKET_API_URL, headers=headers, timeout=10)
-    resp.raise_for_status()
-    return resp.json()["data"]
+    # 1. Fetch all F&O securities for base price data
+    fo_data = nse_service.fetch_fo_securities()
+    # 2. Fetch OI spurts for OI data
+    oi_data = nse_service.fetch_oi_spurts()
+
+    if not fo_data and not oi_data:
+        return []
+
+    # Map OI data by symbol for quick lookup
+    oi_map = {item.get("symbol"): item for item in oi_data if item.get("symbol")}
+
+    processed = []
+    
+    # Process the full F&O list
+    for item in fo_data:
+        try:
+            symbol = item.get("symbol")
+            if not symbol or symbol == "SECURITIES IN F&O":
+                continue
+                
+            ltp = float(item.get("lastPrice", 0))
+            prev_close = float(item.get("previousClose", 0))
+            if prev_close == 0:
+                prev_close = get_prev_close(symbol) or ltp
+                
+            open_price = float(item.get("open", 0))
+            high_price = float(item.get("dayHigh", 0))
+            low_price  = float(item.get("dayLow", 0))
+            volume     = int(item.get("totalTradedVolume", 0))
+            
+            # Match with OI data
+            oi_item = oi_map.get(symbol, {})
+            
+            processed.append({
+                "symbol":     symbol,
+                "ltp":        ltp,
+                "prev_close": prev_close,
+                "open":       open_price if open_price > 0 else None,
+                "high":       high_price if high_price > 0 else None,
+                "low":        low_price if low_price > 0 else None,
+                "oi":         oi_item.get("latestOI", 0),
+                "oi_prev":    oi_item.get("prevOI", 0),
+                "oi_change":  oi_item.get("avgInOI", 0),
+                "volume":     volume,
+            })
+            
+            # Remove from map so we can process leftovers
+            if symbol in oi_map:
+                del oi_map[symbol]
+                
+        except Exception as e:
+            logger.error(f"Error mapping FO item {item.get('symbol')}: {e}")
+            continue
+            
+    # Process any remaining OI items that weren't in the FO list (rare)
+    for symbol, item in oi_map.items():
+        try:
+            ltp = float(item.get("underlyingValue", 0))
+            prev_close = get_prev_close(symbol) or ltp
+            processed.append({
+                "symbol":     symbol,
+                "ltp":        ltp,
+                "prev_close": prev_close,
+                "open":       None,
+                "high":       None,
+                "low":        None,
+                "oi":         item.get("latestOI", 0),
+                "oi_prev":    item.get("prevOI", 0),
+                "oi_change":  item.get("avgInOI", 0),
+                "volume":     item.get("volume", 0),
+            })
+        except Exception as e:
+            continue
+
+    return processed
 
 
 # ── Mock Data ─────────────────────────────────────────────────────

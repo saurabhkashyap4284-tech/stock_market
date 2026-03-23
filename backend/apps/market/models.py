@@ -92,3 +92,36 @@ class Candle5Min(models.Model):
     class Meta:
         unique_together = ["stock", "date"]   # ek din mein sirf ek candle
         ordering        = ["-date"]
+
+
+class SignalLog(models.Model):
+    """
+    Har signal transition log hota hai yahan — with timestamp.
+    KPI drilldown ke liye: click BEARISH → see all bearish stocks with time.
+    """
+    SIGNAL_CHOICES = [
+        ("BULLISH",          "Bullish"),
+        ("BEARISH",          "Bearish"),
+        ("FALSE_ALERT_BULL", "False Alert (was Bullish)"),
+        ("FALSE_ALERT_BEAR", "False Alert (was Bearish)"),
+        ("NEUTRAL",          "Neutral"),
+    ]
+
+    stock          = models.ForeignKey(Stock, on_delete=models.CASCADE, related_name="signal_logs")
+    signal_type    = models.CharField(max_length=20, choices=SIGNAL_CHOICES, db_index=True)
+    ltp_at_signal  = models.FloatField()
+    oi_at_signal   = models.BigIntegerField(default=0)
+    baseline_ltp   = models.FloatField()            # 9 AM reference LTP (prev_close)
+    baseline_oi    = models.BigIntegerField(default=0)  # 9 AM reference OI
+    candle_high    = models.FloatField(null=True, blank=True)
+    candle_low     = models.FloatField(null=True, blank=True)
+    reason         = models.CharField(max_length=200, blank=True)
+    timestamp      = models.DateTimeField(auto_now_add=True, db_index=True)
+    date           = models.DateField(db_index=True)
+
+    def __str__(self):
+        return f"{self.stock.symbol} → {self.signal_type} @ {self.timestamp}"
+
+    class Meta:
+        ordering = ["-timestamp"]
+        indexes  = [models.Index(fields=["stock", "date", "signal_type"])]

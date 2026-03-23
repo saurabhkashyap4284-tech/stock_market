@@ -9,4 +9,7 @@ urlpatterns = [
     path("oi-history/",        views.OIHistoryView.as_view(),       name="oi-history"),
     path("candles/",           views.Candle5MinView.as_view(),      name="candles-5min"),
     path("phase/",             views.MarketPhaseView.as_view(),     name="market-phase"),
+    path("signal-logs/",       views.SignalLogView.as_view(),       name="signal-logs"),
+    path("purge/",             views.DataPurgeView.as_view(),       name="purge-data"),
+    path("clear-state/",       views.ClearMarketStateView.as_view(),name="clear-state"),
 ]

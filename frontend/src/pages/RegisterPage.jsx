@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { authAPI } from "../api";
 
 export default function RegisterPage() {
-  const [formData, setFormData] = useState({ email: "", password: "", first_name: "", last_name: "" });
+  const [formData, setFormData] = useState({ email: "", username: "", phone: "", password: "", password2: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -21,7 +21,20 @@ export default function RegisterPage() {
       await authAPI.register(formData);
       navigate("/login");
     } catch (err) {
-      setError(err.response?.data?.detail || "Registration failed");
+      const data = err.response?.data;
+      // Guard: only parse if data is a plain object (not an HTML string from Django error page)
+      if (data && typeof data === "object" && !Array.isArray(data)) {
+        const messages = [];
+        Object.entries(data).forEach(([key, val]) => {
+          const msgs = Array.isArray(val) ? val : [val];
+          msgs.forEach(m => messages.push(key === "non_field_errors" || key === "detail" ? String(m) : `${key}: ${String(m)}`));
+        });
+        setError(messages.join(" | ") || "Registration failed");
+      } else if (err.response?.status >= 500) {
+        setError("Server error. Please try again later.");
+      } else {
+        setError("Registration failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -34,19 +47,12 @@ export default function RegisterPage() {
       <form onSubmit={handleSubmit}>
         <input
           type="text"
-          name="first_name"
-          placeholder="First Name"
-          value={formData.first_name}
+          name="username"
+          placeholder="Username"
+          value={formData.username}
           onChange={handleChange}
           style={{ width: "100%", padding: "10px", marginBottom: "10px", borderRadius: "4px", border: "1px solid #ccc" }}
-        />
-        <input
-          type="text"
-          name="last_name"
-          placeholder="Last Name"
-          value={formData.last_name}
-          onChange={handleChange}
-          style={{ width: "100%", padding: "10px", marginBottom: "10px", borderRadius: "4px", border: "1px solid #ccc" }}
+          required
         />
         <input
           type="email"
@@ -58,10 +64,27 @@ export default function RegisterPage() {
           required
         />
         <input
+          type="text"
+          name="phone"
+          placeholder="Phone Number (Optional)"
+          value={formData.phone}
+          onChange={handleChange}
+          style={{ width: "100%", padding: "10px", marginBottom: "10px", borderRadius: "4px", border: "1px solid #ccc" }}
+        />
+        <input
           type="password"
           name="password"
           placeholder="Password"
           value={formData.password}
+          onChange={handleChange}
+          style={{ width: "100%", padding: "10px", marginBottom: "10px", borderRadius: "4px", border: "1px solid #ccc" }}
+          required
+        />
+         <input
+          type="password"
+          name="password2"
+          placeholder="Confirm Password"
+          value={formData.password2}
           onChange={handleChange}
           style={{ width: "100%", padding: "10px", marginBottom: "15px", borderRadius: "4px", border: "1px solid #ccc" }}
           required

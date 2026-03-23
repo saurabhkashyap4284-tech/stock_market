@@ -11,59 +11,75 @@ services:
       POSTGRES_PASSWORD: yourpassword
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    networks:
+      - fo_network
 
   # ── Redis ────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    networks:
+      - fo_network
     volumes:
       - redis_data:/data
 
-  # ── Django (HTTP + WebSocket via Daphne) ─────────────────────
+  # ── Django (ASGI via Daphne) ─────────────────────────────────
   web:
     build: ./backend
+    # Using Daphne for both HTTP and WebSockets in production
     command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
-    volumes:
-      - ./backend:/app
-    ports:
-      - "8000:8000"
-    env_file: ./backend/.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+    env_file:
+      - ./backend/.env.prod
     depends_on:
       - db
       - redis
+    networks:
+      - fo_network
 
   # ── Celery Worker ─────────────────────────────────────────────
   celery_worker:
     build: ./backend
-    command: celery -A config.celery worker --loglevel=info
-    volumes:
-      - ./backend:/app
-    env_file: ./backend/.env
+    command: celery -A config.celery worker --loglevel=info --pool=solo
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+    env_file:
+      - ./backend/.env.prod
     depends_on:
       - db
       - redis
+    networks:
+      - fo_network
 
-  # ── Celery Beat (Scheduler) ───────────────────────────────────
+  # ── Celery Beat ───────────────────────────────────────────────
   celery_beat:
     build: ./backend
     command: celery -A config.celery beat --loglevel=info
-    volumes:
-      - ./backend:/app
-    env_file: ./backend/.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.prod
+    env_file:
+      - ./backend/.env.prod
     depends_on:
       - db
       - redis
+    networks:
+      - fo_network
 
-  # ── React Frontend ────────────────────────────────────────────
+  # ── React Frontend (Static Build serving via Nginx) ───────────
   frontend:
-    build: ./frontend
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.prod
     ports:
-      - "5173:5173"
+      - "80:80"
     depends_on:
       - web
+    networks:
+      - fo_network
+
+networks:
+  fo_network:
+    driver: bridge
 
 volumes:
   postgres_data:

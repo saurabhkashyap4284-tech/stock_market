@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+*.sqlite3
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Environment
+.env
+.env.prod
+!render.yaml
+
+# IDE
+.vscode/
+.idea/
+.gemini/
+.agents/
+
+# Logs
+*.log
+celerybeat-schedule
+celerybeat.pid
+
+# OS
+.DS_Store
+Thumbs.db

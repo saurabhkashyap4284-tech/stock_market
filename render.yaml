@@ -1,0 +1,86 @@
+services:
+  # ── Django Web Service ──────────────────────────────────────────
+  - type: web
+    name: fo-monitor-api
+    env: python
+    buildCommand: cd backend && pip install -r requirements.txt && python manage.py collectstatic --no-input
+    startCommand: cd backend && daphne -b 0.0.0.0 -p $PORT config.asgi:application
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.prod
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fo-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: fo-redis
+          property: connectionString
+
+  # ── Celery Worker ───────────────────────────────────────────────
+  - type: worker
+    name: fo-monitor-worker
+    env: python
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && celery -A config.celery worker --loglevel=info --pool=solo
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.prod
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fo-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: fo-redis
+          property: connectionString
+
+  # ── Celery Beat ────────────────────────────────────────────────
+  - type: worker
+    name: fo-monitor-beat
+    env: python
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && celery -A config.celery beat --loglevel=info
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.prod
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fo-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: fo-redis
+          property: connectionString
+
+  # ── React Frontend ──────────────────────────────────────────────
+  - type: web
+    name: fo-monitor-ui
+    env: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishDir: frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: fo-monitor-api
+          property: url
+      - key: VITE_WS_URL
+        fromService:
+          type: web
+          name: fo-monitor-api
+          property: url
+          # Regex to change https:// to wss://
+          # Note: Render might need manual URL editing for WS
+
+databases:
+  - name: fo-db
+    plan: free # Note: Free DB expires after 90 days on Render
+
+redis:
+  - name: fo-redis
+    plan: free
+    ipAllowList: [] # Allow all Render services

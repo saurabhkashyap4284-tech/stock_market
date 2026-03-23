@@ -1,7 +1,5 @@
 import { useEffect } from "react";
-import { useAlertsStore } from "../store";
-
-export default function AlertToasts() {
+import { useAlertsStore } from "../../store";export default function AlertToasts() {
   const { toasts, removeToast } = useAlertsStore();
 
   useEffect(() => {

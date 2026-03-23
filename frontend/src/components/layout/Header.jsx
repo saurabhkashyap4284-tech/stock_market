@@ -1,6 +1,6 @@
-import { useAuth } from "../hooks/useAuth";
-import { useMarketStore } from "../store";
-import { PHASE_META } from "../utils";
+import { useAuth } from "../../hooks/useAuth";
+import { useMarketStore } from "../../store";
+import { PHASE_META } from "../../utils";
 
 export default function Header() {
   const { user, handleLogout } = useAuth();

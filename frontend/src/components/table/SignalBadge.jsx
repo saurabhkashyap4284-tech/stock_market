@@ -1,4 +1,4 @@
-import { SIGNAL_META } from "../utils";
+import { SIGNAL_META } from "../../utils";
 
 export default function SignalBadge({ signal, size = "small" }) {
   const meta = SIGNAL_META[signal] || SIGNAL_META.NEUTRAL;

@@ -5,14 +5,15 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework import status
 from django.utils import timezone
 
-from .models import Stock, OISnapshot, Candle5Min
+from .models import Stock, OISnapshot, Candle5Min, SignalLog
 from .serializers import (
     StockSerializer, OISnapshotSerializer,
     Candle5MinSerializer, LiveStockSerializer,
+    SignalLogSerializer,
 )
 from utils.redis_client import (
     get_all_symbols, get_stock, get_candle,
-    get_signal, get_phase,
+    get_signal, get_phase, clear_market_state
 )
 
 
@@ -142,3 +143,61 @@ class MarketPhaseView(APIView):
         from apps.market.services.phase_detector import get_market_phase
         phase = get_market_phase()
         return Response({"phase": phase, "time": timezone.now().isoformat()})
+
+
+class DataPurgeView(APIView):
+    """
+    POST /api/market/purge/
+    Manually clean historical OISnapshots.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        # Allow specifying 'days' to keep, default 0 (clean all)
+        days = int(request.data.get("days", 0))
+        if days == 0:
+            deleted, _ = OISnapshot.objects.all().delete()
+        else:
+            cutoff = timezone.now() - timezone.timedelta(days=days)
+            deleted, _ = OISnapshot.objects.filter(timestamp__lt=cutoff).delete()
+            
+        return Response({
+            "message": f"Successfully deleted {deleted} records.",
+            "deleted_count": deleted
+        })
+
+
+class SignalLogView(APIView):
+    """
+    GET /api/market/signal-logs/?type=BEARISH&date=2026-03-21
+    KPI drilldown — click Bearish card → see all bearish stocks with timestamps.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        signal_type = request.query_params.get("type", "").upper()
+        date = request.query_params.get("date", str(timezone.now().date()))
+
+        qs = SignalLog.objects.select_related("stock").filter(date=date)
+
+        if signal_type:
+            # Support "FALSE_ALERTS" as a combined filter
+            if signal_type == "FALSE_ALERTS":
+                qs = qs.filter(signal_type__in=["FALSE_ALERT_BULL", "FALSE_ALERT_BEAR"])
+            else:
+                qs = qs.filter(signal_type=signal_type)
+
+        qs = qs.order_by("-timestamp")[:200]
+        return Response(SignalLogSerializer(qs, many=True).data)
+
+
+class ClearMarketStateView(APIView):
+    """
+    POST /api/market/clear-state/
+    Manually clear Redis state (candles, signals, etc).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        clear_market_state()
+        return Response({"message": "Market state cleared successfully."})

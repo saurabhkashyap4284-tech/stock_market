@@ -1,6 +1,6 @@
 # Serializers for market data
 from rest_framework import serializers
-from .models import Stock, OISnapshot, Candle5Min
+from .models import Stock, OISnapshot, Candle5Min, SignalLog
 
 
 class StockSerializer(serializers.ModelSerializer):
@@ -39,6 +39,20 @@ class Candle5MinSerializer(serializers.ModelSerializer):
             "prev_close",
             "all_below_prev_close", "all_above_prev_close",
             "created_at",
+        ]
+
+
+class SignalLogSerializer(serializers.ModelSerializer):
+    symbol = serializers.CharField(source="stock.symbol", read_only=True)
+
+    class Meta:
+        model  = SignalLog
+        fields = [
+            "id", "symbol", "signal_type", "timestamp",
+            "ltp_at_signal", "oi_at_signal",
+            "baseline_ltp", "baseline_oi",
+            "candle_high", "candle_low",
+            "reason", "date",
         ]
 
 

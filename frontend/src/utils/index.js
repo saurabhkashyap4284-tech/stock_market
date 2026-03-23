@@ -14,13 +14,11 @@ export const bg     = v => v > 0 ? "rgba(0,245,160,0.08)" : v < 0 ? "rgba(255,71
 
 // ── Signal Meta ───────────────────────────────────────────────
 export const SIGNAL_META = {
-  BEARISH:          { color: "#ff4757", bg: "rgba(255,71,87,0.1)",   border: "rgba(255,71,87,0.3)",   icon: "🔴", label: "BEARISH" },
-  BEARISH_TRAP:     { color: "#ff6b35", bg: "rgba(255,107,53,0.1)",  border: "rgba(255,107,53,0.3)",  icon: "🪤", label: "BEARISH TRAP" },
-  BEARISH_ZONE:     { color: "#ffa500", bg: "rgba(255,165,0,0.08)",  border: "rgba(255,165,0,0.25)",  icon: "⚠️", label: "BEARISH ZONE" },
-  BULLISH:          { color: "#00f5a0", bg: "rgba(0,245,160,0.1)",   border: "rgba(0,245,160,0.3)",   icon: "🟢", label: "BULLISH" },
-  BULLISH_PULLBACK: { color: "#00c9a7", bg: "rgba(0,201,167,0.1)",   border: "rgba(0,201,167,0.3)",   icon: "🎯", label: "BULL PULLBACK" },
-  BULLISH_ZONE:     { color: "#ffd700", bg: "rgba(255,215,0,0.08)",  border: "rgba(255,215,0,0.25)",  icon: "👀", label: "BULLISH ZONE" },
-  NEUTRAL:          { color: "#475569", bg: "rgba(71,85,105,0.06)",  border: "rgba(71,85,105,0.2)",   icon: "⚪", label: "NEUTRAL" },
+  BEARISH:          { color: "#ff4757", bg: "rgba(255,71,87,0.1)",    border: "rgba(255,71,87,0.3)",    icon: "🔴", label: "BEARISH" },
+  BULLISH:          { color: "#00f5a0", bg: "rgba(0,245,160,0.1)",    border: "rgba(0,245,160,0.3)",    icon: "🟢", label: "BULLISH" },
+  FALSE_ALERT_BULL: { color: "#fb7185", bg: "rgba(251,113,133,0.08)", border: "rgba(251,113,133,0.3)",  icon: "❌", label: "FALSE ALERT (Bull)" },
+  FALSE_ALERT_BEAR: { color: "#94a3b8", bg: "rgba(148,163,184,0.08)", border: "rgba(148,163,184,0.3)",  icon: "❌", label: "FALSE ALERT (Bear)" },
+  NEUTRAL:          { color: "#475569", bg: "rgba(71,85,105,0.06)",   border: "rgba(71,85,105,0.2)",    icon: "⚪", label: "NEUTRAL" },
 };
 
 export const PHASE_META = {
@@ -32,11 +30,10 @@ export const PHASE_META = {
 };
 
 export const TABS = [
-  { key: "ALL",          label: "📋 All",           color: "#64748b" },
-  { key: "BEARISH",      label: "🔴 Bearish",        color: "#ff4757" },
-  { key: "BEARISH_ZONE", label: "⚠️ Bearish Zone",  color: "#ffa500" },
-  { key: "BULLISH",      label: "🟢 Bullish",        color: "#00f5a0" },
-  { key: "BULLISH_ZONE", label: "👀 Bullish Zone",   color: "#ffd700" },
+  { key: "ALL",           label: "📋 All",            color: "#64748b" },
+  { key: "BEARISH",       label: "🔴 Bearish",        color: "#ff4757" },
+  { key: "BULLISH",       label: "🟢 Bullish",        color: "#00f5a0" },
+  { key: "FALSE_ALERTS",  label: "❌ False Alerts",   color: "#fb7185" },
 ];
 
 export const INDICES = new Set(["NIFTY","BANKNIFTY","FINNIFTY","MIDCPNIFTY","NIFTYNXT50"]);

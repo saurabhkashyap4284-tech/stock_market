@@ -17,6 +17,18 @@ app.conf.beat_schedule = {
         "schedule": 30.0,
     },
 
+    # 1. Reset Redis at 9:00 AM
+    "reset-market-state-900": {
+        "task":     "apps.market.tasks.reset_market_state",
+        "schedule": crontab(hour=9, minute=0),
+    },
+
+    # 2. Sync Metadata at 9:01 AM
+    "sync-metadata-901": {
+        "task":     "apps.market.tasks.sync_daily_metadata",
+        "schedule": crontab(hour=9, minute=1),
+    },
+
     # Build 5-min candle snapshot at 9:20 AM
     "build-5min-candle": {
         "task":     "apps.market.tasks.build_5min_candle",

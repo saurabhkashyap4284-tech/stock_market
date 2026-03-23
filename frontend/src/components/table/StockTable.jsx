@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { useMarketStore } from "../store";
-import { TABS, fmt, clr, pDiff } from "../utils";
+import { useMarketStore } from "../../store";
+import { TABS, fmt, clr, pDiff } from "../../utils";
 import SignalBadge from "./SignalBadge";
 
 export default function StockTable() {
@@ -10,7 +10,13 @@ export default function StockTable() {
     let list = Object.entries(stocks).map(([sym, data]) => ({ symbol: sym, ...data, signal: signals[sym] }));
     
     if (activeTab !== "ALL") {
-      list = list.filter(s => s.signal?.signal?.includes(activeTab));
+      list = list.filter(s => {
+        const sig = s.signal || { signal: "NEUTRAL" };
+        if (activeTab === "FALSE_ALERTS") return sig.signal === "FALSE_ALERT_BULL" || sig.signal === "FALSE_ALERT_BEAR";
+        if (activeTab === "BULLISH")      return sig.signal === "BULLISH";
+        if (activeTab === "BEARISH")      return sig.signal === "BEARISH";
+        return sig.signal === activeTab;
+      });
     }
     
     if (search) {
@@ -61,25 +67,37 @@ export default function StockTable() {
           <tr style={{ borderBottom: "1px solid #334155" }}>
             <th style={{ padding: "10px", textAlign: "left", color: "#94a3b8" }}>Symbol</th>
             <th style={{ padding: "10px", textAlign: "right", color: "#94a3b8" }}>LTP</th>
+            <th style={{ padding: "10px", textAlign: "right", color: "#94a3b8" }}>Baseline</th>
             <th style={{ padding: "10px", textAlign: "right", color: "#94a3b8" }}>Change %</th>
             <th style={{ padding: "10px", textAlign: "right", color: "#94a3b8" }}>Volume</th>
             <th style={{ padding: "10px", textAlign: "center", color: "#94a3b8" }}>Signal</th>
+            <th style={{ padding: "10px", textAlign: "left", color: "#94a3b8" }}>Time</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map(stock => (
-            <tr key={stock.symbol} style={{ borderBottom: "1px solid #334155", height: "45px" }}>
-              <td style={{ padding: "10px" }}>{stock.symbol}</td>
-              <td style={{ padding: "10px", textAlign: "right", color: clr(stock.change) }}>₹{fmt(stock.ltp)}</td>
-              <td style={{ padding: "10px", textAlign: "right", color: clr(stock.change), fontWeight: "bold" }}>
-                {stock.change > 0 ? "+" : ""}{stock.change?.toFixed(2)}%
-              </td>
-              <td style={{ padding: "10px", textAlign: "right", color: "#94a3b8" }}>{fmt(stock.volume)}</td>
-              <td style={{ padding: "10px", textAlign: "center" }}>
-                <SignalBadge signal={stock.signal?.signal} />
-              </td>
-            </tr>
-          ))}
+          {filtered.map(stock => {
+            const change = stock.prev_close ? pDiff(stock.prev_close, stock.ltp) : 0;
+            const signalTs = stock.signal?.signal_ts;
+            return (
+              <tr key={stock.symbol} style={{ borderBottom: "1px solid #334155", height: "45px" }}>
+                <td style={{ padding: "10px", fontWeight: "bold", color: "#f8fafc" }}>{stock.symbol}</td>
+                <td style={{ padding: "10px", textAlign: "right", color: clr(change) }}>₹{fmt(stock.ltp)}</td>
+                <td style={{ padding: "10px", textAlign: "right", color: "#64748b" }}>
+                  {stock.baseline_ltp ? `₹${fmt(stock.baseline_ltp)}` : "—"}
+                </td>
+                <td style={{ padding: "10px", textAlign: "right", color: clr(change), fontWeight: "bold" }}>
+                  {change > 0 ? "+" : ""}{change.toFixed(2)}%
+                </td>
+                <td style={{ padding: "10px", textAlign: "right", color: "#94a3b8" }}>{fmt(stock.volume)}</td>
+                <td style={{ padding: "10px", textAlign: "center" }}>
+                  <SignalBadge signal={stock.signal?.signal} />
+                </td>
+                <td style={{ padding: "10px", color: "#94a3b8", fontSize: "12px" }}>
+                  {signalTs ? new Date(signalTs).toLocaleTimeString("en-IN") : "—"}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 

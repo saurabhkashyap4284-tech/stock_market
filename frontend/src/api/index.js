@@ -39,7 +39,7 @@ api.interceptors.response.use(
 
 // ── Auth endpoints ────────────────────────────────────────────
 export const authAPI = {
-  login:    (data) => api.post("/api/users/login/",      data),
+  login:    (data) => api.post("/api/auth/login/",       data),
   refresh:  (data) => api.post("/api/auth/refresh/",     data),
   register: (data) => api.post("/api/users/register/",   data),
 };
@@ -52,6 +52,9 @@ export const marketAPI = {
   candles:      (params) => api.get("/api/market/candles/",     { params }),
   oiHistory:    (params) => api.get("/api/market/oi-history/",  { params }),
   phase:        ()       => api.get("/api/market/phase/"),
+  signalLogs:   (params) => api.get("/api/market/signal-logs/", { params }),
+  purgeData:    (days=0)  => api.post("/api/market/purge/", { days }),
+  clearState:   ()       => api.post("/api/market/clear-state/"),
 };
 
 // ── Signals endpoints ─────────────────────────────────────────

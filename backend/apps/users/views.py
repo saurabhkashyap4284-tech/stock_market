@@ -3,8 +3,27 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
+from rest_framework_simplejwt.tokens import RefreshToken
 from .models import CustomUser, Watchlist
-from .serializers import RegisterSerializer, UserProfileSerializer, WatchlistSerializer
+from .serializers import RegisterSerializer, UserProfileSerializer, WatchlistSerializer, LoginSerializer
+
+
+class LoginView(APIView):
+    """POST /api/users/login/ - Login with email & password"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.validated_data["user"]
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "email": user.email,
+                "username": user.username
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class RegisterView(APIView):
@@ -22,6 +41,9 @@ class RegisterView(APIView):
                 {"id": user.id, "email": user.email, "message": "Registration successful"},
                 status=status.HTTP_201_CREATED
             )
+        
+        # Log errors to terminal for debugging
+        print(f"Registration Error for {request.data.get('email')}: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

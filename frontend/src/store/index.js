@@ -30,6 +30,7 @@ export const useMarketStore = create((set, get) => ({
   lastTick:    null,
   wsConnected: false,
   activeTab:   "ALL",
+  selectedKPI: null,       // which KPI card is clicked for drilldown
   search:      "",
 
   // Called on every WS tick
@@ -65,7 +66,8 @@ export const useMarketStore = create((set, get) => ({
   },
 
   setWsConnected: (v) => set({ wsConnected: v }),
-  setActiveTab:   (v) => set({ activeTab: v, search: "" }),
+  setActiveTab:   (v) => set({ activeTab: v, search: "", selectedKPI: null }),
+  setSelectedKPI: (v) => set({ selectedKPI: v }),
   setSearch:      (v) => set({ search: v }),
 
   // Derived — all stocks as array
@@ -73,12 +75,13 @@ export const useMarketStore = create((set, get) => ({
 
   // Counts per signal bucket
   getCounts: () => {
-    const sigs = get().signals;
+    const sigs = Object.values(get().signals);
     return {
-      BEARISH:         Object.values(sigs).filter(s => ["BEARISH","BEARISH_TRAP"].includes(s?.signal)).length,
-      BEARISH_ZONE:    Object.values(sigs).filter(s => s?.signal === "BEARISH_ZONE").length,
-      BULLISH:         Object.values(sigs).filter(s => ["BULLISH","BULLISH_PULLBACK"].includes(s?.signal)).length,
-      BULLISH_ZONE:    Object.values(sigs).filter(s => s?.signal === "BULLISH_ZONE").length,
+      BEARISH:         sigs.filter(s => s?.signal === "BEARISH").length,
+      BULLISH:         sigs.filter(s => s?.signal === "BULLISH").length,
+      FALSE_ALERT_BULL: sigs.filter(s => s?.signal === "FALSE_ALERT_BULL").length,
+      FALSE_ALERT_BEAR: sigs.filter(s => s?.signal === "FALSE_ALERT_BEAR").length,
+      FALSE_ALERTS:    sigs.filter(s => s?.signal === "FALSE_ALERT_BULL" || s?.signal === "FALSE_ALERT_BEAR").length,
     };
   },
 }));
