@@ -1,5 +1,6 @@
 services:
-  # ── Django Web Service (API + WebSockets) ───────────────────────
+  # ── Unified Backend Service (API + Worker + Beat) ────────────────
+  # Note: Running all 3 in one service to stay on the FREE tier.
   - type: web
     name: fo-monitor-api
     env: python
@@ -7,7 +8,13 @@ services:
     plan: free
     buildCommand: cd backend && pip install -r requirements.txt && python manage.py collectstatic --no-input
     preDeployCommand: cd backend && python manage.py migrate --no-input
-    startCommand: cd backend && daphne -b 0.0.0.0 -p $PORT config.asgi:application
+    # Start command runs Django, Worker, and Beat in parallel
+    startCommand: |
+      cd backend
+      python manage.py runserver 0.0.0.0:$PORT &
+      celery -A config.celery worker --loglevel=info --pool=solo &
+      celery -A config.celery beat --loglevel=info &
+      wait -n
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: config.settings.prod
@@ -17,53 +24,7 @@ services:
           property: connectionString
       - key: REDIS_URL
         fromService:
-          type: redis
-          name: fo-redis
-          property: connectionString
-      - key: PYTHON_VERSION
-        value: 3.11.5
-
-  # ── Celery Worker ───────────────────────────────────────────────
-  - type: worker
-    name: fo-monitor-worker
-    env: python
-    region: singapore
-    plan: free
-    buildCommand: cd backend && pip install -r requirements.txt
-    startCommand: cd backend && celery -A config.celery worker --loglevel=info --pool=solo
-    envVars:
-      - key: DJANGO_SETTINGS_MODULE
-        value: config.settings.prod
-      - key: DATABASE_URL
-        fromDatabase:
-          name: fo-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: fo-redis
-          property: connectionString
-      - key: PYTHON_VERSION
-        value: 3.11.5
-
-  # ── Celery Beat ────────────────────────────────────────────────
-  - type: worker
-    name: fo-monitor-beat
-    env: python
-    region: singapore
-    plan: free
-    buildCommand: cd backend && pip install -r requirements.txt
-    startCommand: cd backend && celery -A config.celery beat --loglevel=info
-    envVars:
-      - key: DJANGO_SETTINGS_MODULE
-        value: config.settings.prod
-      - key: DATABASE_URL
-        fromDatabase:
-          name: fo-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
+          type: keyvalue
           name: fo-redis
           property: connectionString
       - key: PYTHON_VERSION
@@ -72,11 +33,11 @@ services:
   # ── React Frontend (Static Site) ──────────────────────────────
   - type: web
     name: fo-monitor-ui
-    runtime: static # Mandatory for static sites in 2026 Render Blueprints
+    runtime: static
     region: singapore
     plan: free
     buildCommand: cd frontend && npm install && npm run build
-    staticPublishPath: frontend/dist # Updated field name
+    staticPublishPath: frontend/dist
     routes:
       - type: rewrite
         source: /*
@@ -88,12 +49,14 @@ services:
           name: fo-monitor-api
           property: url
 
-databases:
-  - name: fo-db
-    plan: free
+  # ── Render Key Value (Standard Type for Redis in 2026) ────────
+  - type: keyvalue
+    name: fo-redis
     region: singapore
+    plan: free
 
-redis:
-  - name: fo-redis
+databases:
+  # ── Render Postgres ──────────────────────────────────────────
+  - name: fo-db
     plan: free
     region: singapore
