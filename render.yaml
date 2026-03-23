@@ -4,6 +4,7 @@ services:
     name: fo-monitor-api
     env: python
     buildCommand: cd backend && pip install -r requirements.txt && python manage.py collectstatic --no-input
+    preDeployCommand: cd backend && python manage.py migrate --no-input
     startCommand: cd backend && daphne -b 0.0.0.0 -p $PORT config.asgi:application
     envVars:
       - key: DJANGO_SETTINGS_MODULE
