@@ -3,7 +3,7 @@ services:
   - type: web
     name: fo-monitor-api
     env: python
-    region: singapore # Standard for India-based users
+    region: singapore
     plan: free
     buildCommand: cd backend && pip install -r requirements.txt && python manage.py collectstatic --no-input
     preDeployCommand: cd backend && python manage.py migrate --no-input
@@ -70,12 +70,13 @@ services:
         value: 3.11.5
 
   # ── React Frontend (Static Site) ──────────────────────────────
-  - type: static_site
+  - type: web
     name: fo-monitor-ui
+    runtime: static # Mandatory for static sites in 2026 Render Blueprints
     region: singapore
     plan: free
     buildCommand: cd frontend && npm install && npm run build
-    staticPublishDir: frontend/dist
+    staticPublishPath: frontend/dist # Updated field name
     routes:
       - type: rewrite
         source: /*
