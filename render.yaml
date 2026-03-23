@@ -70,19 +70,18 @@ services:
         value: 3.11.5
 
   # ── React Frontend (Static Site) ──────────────────────────────
-  - type: web # Type must be 'web' with 'env: static' OR just 'static' depending on Render version.
-    # Actually, the most reliable way in Blueprints is 'type: web' and 'env: static'
-    # BUT, Render recently moved to a top-level 'staticSites' or just 'type: web' with 'env: static'.
-    # Let's try the most modern standard:
+  - type: static
     name: fo-monitor-ui
-    env: static
     region: singapore
     plan: free
     buildCommand: cd frontend && npm install && npm run build
     staticPublishDir: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     envVars:
       - key: VITE_API_URL
-        # We'll use a placeholder or the actual service URL
         fromService:
           type: web
           name: fo-monitor-api
