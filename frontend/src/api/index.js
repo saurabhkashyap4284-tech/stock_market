@@ -1,6 +1,18 @@
 import axios from "axios";
 
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+// ── Dynamic API URL Logic ──────────────────────────────────────
+const getApiUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (!envUrl) return "http://localhost:8000";
+  // If envUrl is just a hostname (no protocol), prepend https or current protocol
+  if (!envUrl.startsWith("http")) {
+    const protocol = window.location.protocol === "https:" ? "https" : "http";
+    return `${protocol}://${envUrl}`;
+  }
+  return envUrl;
+};
+
+const BASE_URL = getApiUrl();
 
 const api = axios.create({
   baseURL: BASE_URL,
