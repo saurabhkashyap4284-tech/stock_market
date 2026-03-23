@@ -1,8 +1,10 @@
 services:
-  # ── Django Web Service ──────────────────────────────────────────
+  # ── Django Web Service (API + WebSockets) ───────────────────────
   - type: web
     name: fo-monitor-api
     env: python
+    region: singapore # Standard for India-based users
+    plan: free
     buildCommand: cd backend && pip install -r requirements.txt && python manage.py collectstatic --no-input
     preDeployCommand: cd backend && python manage.py migrate --no-input
     startCommand: cd backend && daphne -b 0.0.0.0 -p $PORT config.asgi:application
@@ -18,11 +20,15 @@ services:
           type: redis
           name: fo-redis
           property: connectionString
+      - key: PYTHON_VERSION
+        value: 3.11.5
 
   # ── Celery Worker ───────────────────────────────────────────────
   - type: worker
     name: fo-monitor-worker
     env: python
+    region: singapore
+    plan: free
     buildCommand: cd backend && pip install -r requirements.txt
     startCommand: cd backend && celery -A config.celery worker --loglevel=info --pool=solo
     envVars:
@@ -37,11 +43,15 @@ services:
           type: redis
           name: fo-redis
           property: connectionString
+      - key: PYTHON_VERSION
+        value: 3.11.5
 
   # ── Celery Beat ────────────────────────────────────────────────
   - type: worker
     name: fo-monitor-beat
     env: python
+    region: singapore
+    plan: free
     buildCommand: cd backend && pip install -r requirements.txt
     startCommand: cd backend && celery -A config.celery beat --loglevel=info
     envVars:
@@ -56,32 +66,34 @@ services:
           type: redis
           name: fo-redis
           property: connectionString
+      - key: PYTHON_VERSION
+        value: 3.11.5
 
-  # ── React Frontend ──────────────────────────────────────────────
-  - type: web
+  # ── React Frontend (Static Site) ──────────────────────────────
+  - type: web # Type must be 'web' with 'env: static' OR just 'static' depending on Render version.
+    # Actually, the most reliable way in Blueprints is 'type: web' and 'env: static'
+    # BUT, Render recently moved to a top-level 'staticSites' or just 'type: web' with 'env: static'.
+    # Let's try the most modern standard:
     name: fo-monitor-ui
     env: static
+    region: singapore
+    plan: free
     buildCommand: cd frontend && npm install && npm run build
     staticPublishDir: frontend/dist
     envVars:
       - key: VITE_API_URL
+        # We'll use a placeholder or the actual service URL
         fromService:
           type: web
           name: fo-monitor-api
           property: url
-      - key: VITE_WS_URL
-        fromService:
-          type: web
-          name: fo-monitor-api
-          property: url
-          # Regex to change https:// to wss://
-          # Note: Render might need manual URL editing for WS
 
 databases:
   - name: fo-db
-    plan: free # Note: Free DB expires after 90 days on Render
+    plan: free
+    region: singapore
 
 redis:
   - name: fo-redis
     plan: free
-    ipAllowList: [] # Allow all Render services
+    region: singapore
