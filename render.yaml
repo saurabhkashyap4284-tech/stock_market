@@ -1,16 +1,15 @@
 services:
   # ── Unified Backend Service (API + Worker + Beat) ────────────────
-  # Note: Running all 3 in one service to stay on the FREE tier.
   - type: web
     name: fo-monitor-api
     env: python
     region: singapore
     plan: free
     buildCommand: cd backend && pip install -r requirements.txt && python manage.py collectstatic --no-input
-    preDeployCommand: cd backend && python manage.py migrate --no-input
-    # Start command runs Django, Worker, and Beat in parallel
+    # Move migrations to startCommand because preDeployCommand is not free
     startCommand: |
       cd backend
+      python manage.py migrate --no-input
       python manage.py runserver 0.0.0.0:$PORT &
       celery -A config.celery worker --loglevel=info --pool=solo &
       celery -A config.celery beat --loglevel=info &
@@ -34,7 +33,7 @@ services:
   - type: web
     name: fo-monitor-ui
     runtime: static
-    region: singapore
+    # region: singapore # Removed: Static sites cannot have a region
     plan: free
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
@@ -47,13 +46,15 @@ services:
         fromService:
           type: web
           name: fo-monitor-api
-          property: url
+          property: host # Changed from url to host
+          # Note: We'll handle the https:// prefix in the code or use a clever envVar trick
 
-  # ── Render Key Value (Standard Type for Redis in 2026) ────────
+  # ── Render Key Value (Redis) ──────────────────────────────────
   - type: keyvalue
     name: fo-redis
     region: singapore
     plan: free
+    ipAllowList: [] # Mandatory field
 
 databases:
   # ── Render Postgres ──────────────────────────────────────────
