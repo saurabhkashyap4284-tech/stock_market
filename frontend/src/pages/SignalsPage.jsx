@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { signalsAPI } from "../api";
+import { signalsAPI, marketAPI } from "../api";
 import Header from "../components/layout/Header";
 
 export default function SignalsPage() {
@@ -13,11 +13,40 @@ export default function SignalsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const handleDownload = async (type) => {
+    try {
+      const res = await marketAPI.downloadSignalLogs({ type });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `signal_logs_${type || 'ALL'}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (err) {
+      console.error("Download failed:", err);
+      alert("Failed to download CSV");
+    }
+  };
+
   return (
     <div style={{ minHeight: "100vh", backgroundColor: "#0f172a" }}>
       <Header />
       <div style={{ padding: "20px" }}>
-        <h2>Signal History</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+          <h2 style={{ margin: 0 }}>Signal History</h2>
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button onClick={() => handleDownload('BULLISH')} style={{ padding: "8px 12px", backgroundColor: "#22c55e", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>
+              Download Bullish
+            </button>
+            <button onClick={() => handleDownload('BEARISH')} style={{ padding: "8px 12px", backgroundColor: "#ef4444", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>
+              Download Bearish
+            </button>
+            <button onClick={() => handleDownload('FALSE_ALERTS')} style={{ padding: "8px 12px", backgroundColor: "#f59e0b", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}>
+              Download False Alerts
+            </button>
+          </div>
+        </div>
         {loading ? (
           <p>Loading...</p>
         ) : (

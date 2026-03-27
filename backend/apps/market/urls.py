@@ -10,6 +10,7 @@ urlpatterns = [
     path("candles/",           views.Candle5MinView.as_view(),      name="candles-5min"),
     path("phase/",             views.MarketPhaseView.as_view(),     name="market-phase"),
     path("signal-logs/",       views.SignalLogView.as_view(),       name="signal-logs"),
+    path("signal-logs/download/", views.SignalLogDownloadCSVView.as_view(), name="signal-logs-download"),
     path("purge/",             views.DataPurgeView.as_view(),       name="purge-data"),
     path("clear-state/",       views.ClearMarketStateView.as_view(),name="clear-state"),
 ]

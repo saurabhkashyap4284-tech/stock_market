@@ -43,6 +43,7 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 
 # ── Static Files ──────────────────────────────────────────────────
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # ── CORS ──────────────────────────────────────────────────────────
 CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")

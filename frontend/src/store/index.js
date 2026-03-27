@@ -75,14 +75,27 @@ export const useMarketStore = create((set, get) => ({
 
   // Counts per signal bucket
   getCounts: () => {
-    const sigs = Object.values(get().signals);
-    return {
-      BEARISH:         sigs.filter(s => s?.signal === "BEARISH").length,
-      BULLISH:         sigs.filter(s => s?.signal === "BULLISH").length,
-      FALSE_ALERT_BULL: sigs.filter(s => s?.signal === "FALSE_ALERT_BULL").length,
-      FALSE_ALERT_BEAR: sigs.filter(s => s?.signal === "FALSE_ALERT_BEAR").length,
-      FALSE_ALERTS:    sigs.filter(s => s?.signal === "FALSE_ALERT_BULL" || s?.signal === "FALSE_ALERT_BEAR").length,
+    const sigs = Object.values(get().signals).map(s => s?.signal || "NEUTRAL");
+
+    const counts = {
+      BEARISH:          sigs.filter(s => s === "BEARISH_FALL").length,
+      BULLISH:          sigs.filter(s => s === "BULLISH_BREAKOUT").length,
+      FALSE_ALERT_BULL: sigs.filter(s => s === "BULLISH_FAILED").length,
+      FALSE_ALERT_BEAR: sigs.filter(s => s === "BEARISH_FAILED").length,
     };
+
+    // Derived statistics
+    counts.FALSE_ALERTS = counts.FALSE_ALERT_BULL + counts.FALSE_ALERT_BEAR;
+
+    // Accuracy Calculation
+    // Accuracy % = (Active) / (Active + Failed) * 100
+    const bullTotal = counts.BULLISH + counts.FALSE_ALERT_BULL;
+    const bearTotal = counts.BEARISH + counts.FALSE_ALERT_BEAR;
+
+    counts.BULLISH_ACCURACY = bullTotal > 0 ? Math.round((counts.BULLISH / bullTotal) * 100) : 0;
+    counts.BEARISH_ACCURACY = bearTotal > 0 ? Math.round((counts.BEARISH / bearTotal) * 100) : 0;
+
+    return counts;
   },
 }));
 

@@ -201,3 +201,53 @@ class ClearMarketStateView(APIView):
     def post(self, request):
         clear_market_state()
         return Response({"message": "Market state cleared successfully."})
+
+
+class SignalLogDownloadCSVView(APIView):
+    """
+    GET /api/market/signal-logs/download/?type=BEARISH&date=2026-03-21
+    Downloads the selected signal logs as a CSV file.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        import csv
+        from django.http import HttpResponse
+        
+        signal_type = request.query_params.get("type", "").upper()
+        date = request.query_params.get("date", str(timezone.now().date()))
+
+        qs = SignalLog.objects.select_related("stock").filter(date=date)
+
+        if signal_type:
+            if signal_type == "FALSE_ALERTS":
+                qs = qs.filter(signal_type__in=["FALSE_ALERT_BULL", "FALSE_ALERT_BEAR"])
+            else:
+                qs = qs.filter(signal_type=signal_type)
+
+        qs = qs.order_by("-timestamp")
+
+        response = HttpResponse(content_type='text/csv')
+        filename = f"signal_logs_{signal_type or 'ALL'}_{date}.csv"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        writer = csv.writer(response)
+        writer.writerow([
+            "Timestamp", "Stock Symbol", "Signal Type", "LTP at Signal", 
+            "Baseline LTP", "OI at Signal", "Baseline OI", "Reason"
+        ])
+
+        for log in qs:
+            time_str = log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else ""
+            writer.writerow([
+                time_str,
+                log.stock.symbol,
+                log.signal_type,
+                log.ltp_at_signal,
+                log.baseline_ltp,
+                log.oi_at_signal,
+                log.baseline_oi,
+                log.reason
+            ])
+
+        return response

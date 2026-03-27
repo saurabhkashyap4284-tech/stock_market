@@ -100,10 +100,10 @@ class SignalLog(models.Model):
     KPI drilldown ke liye: click BEARISH → see all bearish stocks with time.
     """
     SIGNAL_CHOICES = [
-        ("BULLISH",          "Bullish"),
-        ("BEARISH",          "Bearish"),
-        ("FALSE_ALERT_BULL", "False Alert (was Bullish)"),
-        ("FALSE_ALERT_BEAR", "False Alert (was Bearish)"),
+        ("BULLISH_BREAKOUT", "Bullish Breakout"),
+        ("BEARISH_FALL",     "Bearish Fall"),
+        ("BULLISH_FAILED",   "Bullish Failed"),
+        ("BEARISH_FAILED",   "Bearish Failed"),
         ("NEUTRAL",          "Neutral"),
     ]
 

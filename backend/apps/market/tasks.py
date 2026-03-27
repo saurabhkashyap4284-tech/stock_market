@@ -22,6 +22,7 @@ from apps.market.services.signal_engine import classify_signal
 from apps.market.services.data_fetcher import fetch_market_data
 from apps.market.services.candle_builder import update_candle
 from apps.market.services.historical_service import historical_service
+from apps.signals_log.models import SignalEvent
 
 logger = logging.getLogger(__name__)
 channel_layer = get_channel_layer()
@@ -84,6 +85,7 @@ def fetch_and_broadcast():
     broadcast_payload = []
     snapshots_to_create = []
     signal_logs_to_create = []
+    signal_events_to_create = []
     today = timezone.now().date()
     now_ts = timezone.now().isoformat()
 
@@ -163,6 +165,17 @@ def fetch_and_broadcast():
                 date=today,
             ))
 
+            # Also create SignalEvent (for history app)
+            signal_events_to_create.append(SignalEvent(
+                stock=stock_obj,
+                date=today,
+                signal_type=signal["signal"],
+                strength=signal.get("strength", "WATCH"),
+                reason=signal.get("reason", ""),
+                ltp=stock["ltp"],
+                phase=phase
+            ))
+
         set_signal(symbol, signal)
 
         # ── Prepare OI Snapshot ──
@@ -205,6 +218,10 @@ def fetch_and_broadcast():
     if signal_logs_to_create:
         SignalLog.objects.bulk_create(signal_logs_to_create)
         logger.info(f"Logged {len(signal_logs_to_create)} signal transitions")
+
+    if signal_events_to_create:
+        SignalEvent.objects.bulk_create(signal_events_to_create)
+        logger.info(f"Logged {len(signal_events_to_create)} signal events")
 
     # ── 3. WebSocket broadcast ────────────────────────────
     if broadcast_payload:

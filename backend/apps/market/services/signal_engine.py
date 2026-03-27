@@ -59,28 +59,29 @@ def classify_signal(
     if baseline_oi and baseline_oi > 0:
         oi_increased = oi_current > baseline_oi
 
+
     # ════════════════════════════════════════════════════════
-    #  FALSE ALERT Detection (reversal from previous signal)
+    #  FAILED SIGNAL Detection (sticky invalidation)
     # ════════════════════════════════════════════════════════
 
-    # Was BULLISH, now LTP fell below baseline → False Alert
-    if prev_signal_type == "BULLISH" and ltp < baseline_ltp:
+    # Was BULLISH_BREAKOUT, now LTP fell below baseline → Bullish Failed
+    if prev_signal_type == "BULLISH_BREAKOUT" and ltp < baseline_ltp:
         return {
-            "signal":     "FALSE_ALERT_BULL",
+            "signal":     "BULLISH_FAILED",
             "reason":     f"Was Bullish, reversed below baseline | LTP({ltp}) < Baseline({baseline_ltp})",
-            "signal_ts":  None,  # new timestamp will be set by task
+            "signal_ts":  None,
         }
 
-    # Was BEARISH, now LTP rose above baseline → False Alert
-    if prev_signal_type == "BEARISH" and ltp > baseline_ltp:
+    # Was BEARISH_FALL, now LTP rose above baseline → Bearish Failed
+    if prev_signal_type == "BEARISH_FALL" and ltp > baseline_ltp:
         return {
-            "signal":     "FALSE_ALERT_BEAR",
+            "signal":     "BEARISH_FAILED",
             "reason":     f"Was Bearish, reversed above baseline | LTP({ltp}) > Baseline({baseline_ltp})",
             "signal_ts":  None,
         }
 
-    # False alerts are sticky for the day — once false, stays false
-    if prev_signal_type in ("FALSE_ALERT_BULL", "FALSE_ALERT_BEAR"):
+    # "FAILED" signals are sticky for the day
+    if prev_signal_type in ("BULLISH_FAILED", "BEARISH_FAILED"):
         return {
             "signal":     prev_signal_type,
             "reason":     current_signal.get("reason", "Signal invalidated earlier"),
@@ -88,23 +89,24 @@ def classify_signal(
         }
 
     # ════════════════════════════════════════════════════════
-    #  BEARISH — LTP < baseline AND LTP < candle high AND OI ↑
+    #  BEARISH FALL — LTP < baseline AND LTP < candle high AND OI ↑
     # ════════════════════════════════════════════════════════
     if ltp < baseline_ltp and ltp < c_high and oi_increased:
         return {
-            "signal":     "BEARISH",
+            "signal":     "BEARISH_FALL",
             "reason":     f"LTP({ltp}) < Baseline({baseline_ltp}) & < Candle High({c_high}) | OI↑",
-            "signal_ts":  signal_ts if prev_signal_type == "BEARISH" else None,
+            "signal_ts":  signal_ts if prev_signal_type == "BEARISH_FALL" else None,
         }
 
     # ════════════════════════════════════════════════════════
-    #  BULLISH — LTP > baseline AND LTP in candle range
+    #  BULLISH BREAKOUT — LTP > baseline AND LTP > candle low
     # ════════════════════════════════════════════════════════
-    if ltp > baseline_ltp and c_low <= ltp <= c_high:
+    if ltp > baseline_ltp and ltp >= c_low:
+        # We classify as BULLISH_BREAKOUT if it's above baseline and within/above candle range
         return {
-            "signal":     "BULLISH",
-            "reason":     f"LTP({ltp}) > Baseline({baseline_ltp}) & in range [{c_low}, {c_high}]",
-            "signal_ts":  signal_ts if prev_signal_type == "BULLISH" else None,
+            "signal":     "BULLISH_BREAKOUT",
+            "reason":     f"LTP({ltp}) > Baseline({baseline_ltp}) & in/above range [{c_low}, {c_high}]",
+            "signal_ts":  signal_ts if prev_signal_type == "BULLISH_BREAKOUT" else None,
         }
 
     # ════════════════════════════════════════════════════════

@@ -65,6 +65,7 @@ export const marketAPI = {
   oiHistory:    (params) => api.get("/api/market/oi-history/",  { params }),
   phase:        ()       => api.get("/api/market/phase/"),
   signalLogs:   (params) => api.get("/api/market/signal-logs/", { params }),
+  downloadSignalLogs: (params) => api.get("/api/market/signal-logs/download/", { params, responseType: "blob" }),
   purgeData:    (days=0)  => api.post("/api/market/purge/", { days }),
   clearState:   ()       => api.post("/api/market/clear-state/"),
 };

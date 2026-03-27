@@ -22,7 +22,7 @@ class SignalEngineTests(TestCase):
         self.phase = "WATCH"
 
     def test_bearish_signal(self):
-        """LTP < baseline AND LTP < candle_high AND OI increased → BEARISH"""
+        """LTP < baseline AND LTP < candle_high AND OI increased → BEARISH_FALL"""
         self.stock["ltp"] = 95.0   # Below baseline (100)
         self.stock["oi"] = 1200    # OI increased vs baseline (1000)
         sig = classify_signal(
@@ -30,20 +30,20 @@ class SignalEngineTests(TestCase):
             baseline_ltp=self.baseline_ltp,
             baseline_oi=self.baseline_oi
         )
-        self.assertEqual(sig["signal"], "BEARISH")
+        self.assertEqual(sig["signal"], "BEARISH_FALL")
 
     def test_bullish_signal(self):
-        """LTP > baseline AND candle_low <= LTP <= candle_high → BULLISH"""
+        """LTP > baseline AND LTP >= candle_low → BULLISH_BREAKOUT"""
         self.stock["ltp"] = 103.0  # Above baseline and within candle range
         sig = classify_signal(
             self.stock, self.candle, self.phase,
             baseline_ltp=self.baseline_ltp,
             baseline_oi=self.baseline_oi
         )
-        self.assertEqual(sig["signal"], "BULLISH")
+        self.assertEqual(sig["signal"], "BULLISH_BREAKOUT")
 
     def test_false_alert_bull(self):
-        """Was BULLISH, then LTP drops below baseline → FALSE_ALERT_BULL"""
+        """Was BULLISH_BREAKOUT, then LTP drops below baseline → BULLISH_FAILED"""
         # Step 1: Get bullish signal first
         self.stock["ltp"] = 103.0
         sig1 = classify_signal(
@@ -51,7 +51,7 @@ class SignalEngineTests(TestCase):
             baseline_ltp=self.baseline_ltp,
             baseline_oi=self.baseline_oi
         )
-        self.assertEqual(sig1["signal"], "BULLISH")
+        self.assertEqual(sig1["signal"], "BULLISH_BREAKOUT")
 
         # Step 2: LTP drops below baseline
         self.stock["ltp"] = 95.0
@@ -61,10 +61,10 @@ class SignalEngineTests(TestCase):
             baseline_oi=self.baseline_oi,
             current_signal=sig1
         )
-        self.assertEqual(sig2["signal"], "FALSE_ALERT_BULL")
+        self.assertEqual(sig2["signal"], "BULLISH_FAILED")
 
     def test_false_alert_bear(self):
-        """Was BEARISH, then LTP rises above baseline → FALSE_ALERT_BEAR"""
+        """Was BEARISH_FALL, then LTP rises above baseline → BEARISH_FAILED"""
         # Step 1: Get bearish signal
         self.stock["ltp"] = 95.0
         self.stock["oi"] = 1200
@@ -73,7 +73,7 @@ class SignalEngineTests(TestCase):
             baseline_ltp=self.baseline_ltp,
             baseline_oi=self.baseline_oi
         )
-        self.assertEqual(sig1["signal"], "BEARISH")
+        self.assertEqual(sig1["signal"], "BEARISH_FALL")
 
         # Step 2: LTP goes above baseline
         self.stock["ltp"] = 105.0
@@ -83,10 +83,10 @@ class SignalEngineTests(TestCase):
             baseline_oi=self.baseline_oi,
             current_signal=sig1
         )
-        self.assertEqual(sig2["signal"], "FALSE_ALERT_BEAR")
+        self.assertEqual(sig2["signal"], "BEARISH_FAILED")
 
     def test_false_alert_is_sticky(self):
-        """Once a signal becomes FALSE_ALERT, it stays that way for the day"""
+        """Once a signal becomes FAILED, it stays that way for the day"""
         # Step 1: Bullish
         self.stock["ltp"] = 103.0
         sig1 = classify_signal(
@@ -94,7 +94,7 @@ class SignalEngineTests(TestCase):
             baseline_ltp=self.baseline_ltp,
             baseline_oi=self.baseline_oi
         )
-        # Step 2: False alert
+        # Step 2: Failed
         self.stock["ltp"] = 95.0
         sig2 = classify_signal(
             self.stock, self.candle, self.phase,
@@ -102,9 +102,9 @@ class SignalEngineTests(TestCase):
             baseline_oi=self.baseline_oi,
             current_signal=sig1
         )
-        self.assertEqual(sig2["signal"], "FALSE_ALERT_BULL")
+        self.assertEqual(sig2["signal"], "BULLISH_FAILED")
 
-        # Step 3: Price recovers — should STILL be false alert
+        # Step 3: Price recovers — should STILL be failed
         self.stock["ltp"] = 108.0
         sig3 = classify_signal(
             self.stock, self.candle, self.phase,
@@ -112,7 +112,30 @@ class SignalEngineTests(TestCase):
             baseline_oi=self.baseline_oi,
             current_signal=sig2
         )
-        self.assertEqual(sig3["signal"], "FALSE_ALERT_BULL")
+        self.assertEqual(sig3["signal"], "BULLISH_FAILED")
+
+    def test_bearish_trap_to_failed(self):
+        """Regression: was Bearish, then price recovers above baseline -> BEARISH_FAILED (not BULLISH_BREAKOUT)"""
+        # Step 1: Bearish Fall
+        self.stock["ltp"] = 95.0
+        self.stock["oi"] = 1200
+        sig1 = classify_signal(
+            self.stock, self.candle, self.phase,
+            baseline_ltp=self.baseline_ltp,
+            baseline_oi=self.baseline_oi
+        )
+        self.assertEqual(sig1["signal"], "BEARISH_FALL")
+
+        # Step 2: Sharp recovery (Trap) - LTP goes above baseline AND above candle high
+        self.stock["ltp"] = 110.0
+        sig2 = classify_signal(
+            self.stock, self.candle, self.phase,
+            baseline_ltp=self.baseline_ltp,
+            baseline_oi=self.baseline_oi,
+            current_signal=sig1
+        )
+        # Expected: BEARISH_FAILED (sticky invalidation)
+        self.assertEqual(sig2["signal"], "BEARISH_FAILED")
 
     def test_neutral_no_candle(self):
         """No candle data → NEUTRAL"""
